@@ -12,7 +12,6 @@ function slugifyKey(label) {
 
 // ---------- USER ----------
 
-// GET /api/custom-fields - active fields, in order, for the Account page
 exports.getActiveFields = async (req, res) => {
   try {
     const fields = await CustomField.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
@@ -23,7 +22,6 @@ exports.getActiveFields = async (req, res) => {
   }
 };
 
-// PUT /api/custom-fields/my - user saves answers { values: { fieldKey: value } }
 exports.saveMyFieldValues = async (req, res) => {
   try {
     const { values } = req.body;
@@ -34,7 +32,6 @@ exports.saveMyFieldValues = async (req, res) => {
     const activeFields = await CustomField.find({ isActive: true });
     const activeKeys = new Set(activeFields.map(f => f.fieldKey));
 
-    // validate required fields
     for (const field of activeFields) {
       if (field.required) {
         const v = values[field.fieldKey];
@@ -65,7 +62,6 @@ exports.saveMyFieldValues = async (req, res) => {
 
 // ---------- ADMIN ----------
 
-// GET /api/custom-fields/admin/all
 exports.adminListFields = async (req, res) => {
   try {
     const fields = await CustomField.find().sort({ order: 1, createdAt: 1 });
@@ -76,21 +72,20 @@ exports.adminListFields = async (req, res) => {
   }
 };
 
-// POST /api/custom-fields/admin
 exports.adminCreateField = async (req, res) => {
   try {
     let { label, fieldType, options, required, order, isActive } = req.body;
+    
     if (!label) {
       return res.status(400).json({ success: false, message: 'Label is required' });
     }
 
-    // Generate base fieldKey
     let baseKey = slugifyKey(label);
     if (!baseKey) {
       return res.status(400).json({ success: false, message: 'Label must contain at least one letter or number' });
     }
 
-    // Check for uniqueness and add suffix if needed
+    // ⭐ IMPORTANT: Unique key generation with suffix
     let fieldKey = baseKey;
     let suffix = 1;
     while (await CustomField.findOne({ fieldKey })) {
@@ -122,24 +117,22 @@ exports.adminCreateField = async (req, res) => {
       action: 'CREATE_CUSTOM_FIELD',
       targetType: 'CustomField',
       targetId: field._id,
-      details: `Created custom field "${field.label}" on Account page`,
+      details: `Created custom field "${field.label}"`,
     });
 
     return res.status(201).json({ success: true, message: 'Field added', field });
   } catch (err) {
-    console.error(err);
+    console.error('❌ CREATE FIELD ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
 
-// PATCH /api/custom-fields/admin/:id
 exports.adminUpdateField = async (req, res) => {
   try {
     const { label, fieldType, options, required, order, isActive } = req.body;
     const field = await CustomField.findById(req.params.id);
     if (!field) return res.status(404).json({ success: false, message: 'Field not found' });
 
-    // If label changes, regenerate fieldKey with uniqueness check
     if (label && label.trim() !== field.label) {
       let baseKey = slugifyKey(label);
       if (!baseKey) {
@@ -179,12 +172,11 @@ exports.adminUpdateField = async (req, res) => {
 
     return res.json({ success: true, message: 'Field updated', field });
   } catch (err) {
-    console.error(err);
+    console.error('❌ UPDATE FIELD ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
 
-// DELETE /api/custom-fields/admin/:id
 exports.adminDeleteField = async (req, res) => {
   try {
     const field = await CustomField.findByIdAndDelete(req.params.id);
@@ -200,7 +192,7 @@ exports.adminDeleteField = async (req, res) => {
 
     return res.json({ success: true, message: 'Field removed' });
   } catch (err) {
-    console.error(err);
+    console.error('❌ DELETE FIELD ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
