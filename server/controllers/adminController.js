@@ -6,19 +6,24 @@ const AdminAuditLog = require('../models/AdminAuditLog');
 // GET /api/admin/dashboard
 exports.getAdminDashboard = async (req, res) => {
   try {
-    const [totalUsers, pendingDeposits, pendingPayouts, approvedDeposits, approvedPayouts, depositVolumeAgg, payoutVolumeAgg] =
-      await Promise.all([
-        User.countDocuments(),
-        Deposit.countDocuments({ status: 'pending' }),
-        Payout.countDocuments({ status: 'pending' }),
-        Deposit.countDocuments({ status: 'approved' }),
-        Payout.countDocuments({ status: 'approved' }),
-        Deposit.aggregate([{ $match: { status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-        Payout.aggregate([{ $match: { status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-      ]);
-
+    const [
+      totalUsers,
+      pendingDeposits,
+      pendingPayouts,
+      approvedDeposits,
+      approvedPayouts,
+      depositVolumeAgg,
+      payoutVolumeAgg,
+    ] = await Promise.all([
+      User.countDocuments(),
+      Deposit.countDocuments({ status: 'pending' }),
+      Payout.countDocuments({ status: 'pending' }),
+      Deposit.countDocuments({ status: 'approved' }),
+      Payout.countDocuments({ status: 'approved' }),
+      Deposit.aggregate([{ $match: { status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+      Payout.aggregate([{ $match: { status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+    ]);
     const totalVolume = (depositVolumeAgg[0]?.total || 0) + (payoutVolumeAgg[0]?.total || 0);
-
     return res.json({
       success: true,
       summary: {
@@ -85,6 +90,56 @@ exports.updateUserStatus = async (req, res) => {
   }
 };
 
+// --- NEW: PATCH /api/admin/users/:id/details ---
+exports.updateUserDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Allowed fields (prevent updating passwordHash, balance, etc.)
+    const allowed = [
+      'name',
+      'email',
+      'mobile',
+      'address',
+      'city',
+      'state',
+      'postalCode',
+      'country',
+      'bankName',
+      'bankAccountNumber',
+      'upiId',
+    ];
+    const filtered = {};
+    for (const key of allowed) {
+      if (updates[key] !== undefined) filtered[key] = updates[key];
+    }
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      { $set: filtered },
+      { new: true, runValidators: true }
+    ).select('-passwordHash');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    await AdminAuditLog.create({
+      adminId: req.adminId,
+      action: 'UPDATE_USER_DETAILS',
+      targetType: 'User',
+      targetId: user._id,
+      details: `Updated account details for ${user.email}`,
+    });
+
+    return res.json({ success: true, message: 'User details updated', user });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
 // GET /api/admin/transactions
 exports.listAllTransactions = async (req, res) => {
   try {
@@ -95,7 +150,11 @@ exports.listAllTransactions = async (req, res) => {
     if (status && status !== 'all') filter.status = status;
     const skip = (Number(page) - 1) * Number(limit);
     const [transactions, total] = await Promise.all([
-      Transaction.find(filter).populate('userId', 'name email accountId').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      Transaction.find(filter)
+        .populate('userId', 'name email accountId')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
       Transaction.countDocuments(filter),
     ]);
     return res.json({ success: true, transactions, pagination: { total, page: Number(page), limit: Number(limit) } });
@@ -111,7 +170,11 @@ exports.listAuditLogs = async (req, res) => {
     const { page = 1, limit = 30 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
     const [logs, total] = await Promise.all([
-      AdminAuditLog.find().populate('adminId', 'name email').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      AdminAuditLog.find()
+        .populate('adminId', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
       AdminAuditLog.countDocuments(),
     ]);
     return res.json({ success: true, logs, pagination: { total, page: Number(page), limit: Number(limit) } });
