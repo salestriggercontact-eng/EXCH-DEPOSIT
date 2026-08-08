@@ -47,4 +47,15 @@ export default function AdminSidebar({ open, onClose }) {
       </aside>
     </>
   );
+
+  const navItems = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/deposits', label: 'Deposits', icon: ArrowDownToLine },
+  { to: '/payouts', label: 'Payouts', icon: ArrowUpFromLine },
+  { to: '/users', label: 'Users', icon: Users },
+  { to: '/user-custom-data', label: 'User Custom Data', icon: ListPlus }, // <-- नया
+  { to: '/transactions', label: 'Transactions', icon: Receipt },
+  { to: '/audit-logs', label: 'Audit Logs', icon: ScrollText },
+  { to: '/custom-fields', label: 'Custom Fields', icon: ListPlus },
+];
 }
