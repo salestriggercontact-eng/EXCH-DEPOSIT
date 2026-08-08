@@ -73,6 +73,7 @@ exports.adminListFields = async (req, res) => {
 exports.adminCreateField = async (req, res) => {
   try {
     let { label, fieldType, options, required, order, isActive } = req.body;
+
     if (!label) {
       return res.status(400).json({ success: false, message: 'Label is required' });
     }
@@ -82,7 +83,7 @@ exports.adminCreateField = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Label must contain at least one letter or number' });
     }
 
-    // ✅ Unique key generation – this is the fix for duplicate field error
+    // Unique key generation
     let fieldKey = baseKey;
     let suffix = 1;
     while (await CustomField.findOne({ fieldKey })) {
@@ -90,6 +91,7 @@ exports.adminCreateField = async (req, res) => {
       suffix++;
     }
 
+    // options validation
     if (fieldType === 'select') {
       if (!Array.isArray(options) || options.filter(o => o && o.trim()).length === 0) {
         return res.status(400).json({ success: false, message: 'At least one option is required for a select field' });
@@ -119,7 +121,7 @@ exports.adminCreateField = async (req, res) => {
 
     return res.status(201).json({ success: true, message: 'Field added', field });
   } catch (err) {
-    console.error('❌ CREATE ERROR:', err);
+    console.error('❌ CREATE FIELD ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
@@ -169,7 +171,7 @@ exports.adminUpdateField = async (req, res) => {
 
     return res.json({ success: true, message: 'Field updated', field });
   } catch (err) {
-    console.error('❌ UPDATE ERROR:', err);
+    console.error('❌ UPDATE FIELD ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
@@ -189,7 +191,7 @@ exports.adminDeleteField = async (req, res) => {
 
     return res.json({ success: true, message: 'Field removed' });
   } catch (err) {
-    console.error('❌ DELETE ERROR:', err);
+    console.error('❌ DELETE FIELD ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
