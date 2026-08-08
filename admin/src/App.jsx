@@ -43,3 +43,6 @@ export default function App() {
     </ToastProvider>
   );
 }
+import AdminUserCustomData from './pages/AdminUserCustomData';
+// ... और रूट में
+<Route path="/user-custom-data" element={<AdminUserCustomData />} />
