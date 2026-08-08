@@ -12,7 +12,6 @@ import AdminPayouts from './pages/AdminPayouts';
 import AdminUsers from './pages/AdminUsers';
 import AdminTransactions from './pages/AdminTransactions';
 import AdminAuditLogs from './pages/AdminAuditLogs';
-import AdminCustomFields from './pages/AdminCustomFields';
 
 export default function App() {
   return (
@@ -34,7 +33,6 @@ export default function App() {
               <Route path="/users" element={<AdminUsers />} />
               <Route path="/transactions" element={<AdminTransactions />} />
               <Route path="/audit-logs" element={<AdminAuditLogs />} />
-              <Route path="/custom-fields" element={<AdminCustomFields />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

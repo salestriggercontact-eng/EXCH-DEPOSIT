@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Pencil, X, Loader2 } from 'lucide-react';
+import { Search, BadgeCheck, Clock } from 'lucide-react';
 import { adminApi } from '../api/axios';
 import { useToast } from '../context/ToastContext';
 
@@ -7,28 +7,20 @@ export default function AdminUsers() {
   const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState([]);
-  const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({});
-  const [saving, setSaving] = useState(false);
 
-  const loadUsers = () => {
+  const load = () => {
     setLoading(true);
     adminApi
       .get('/admin/users', { params: { search } })
-      .then((res) => {
-        setUsers(res.data.users);
-        setFields(res.data.fields || []);
-      })
+      .then((res) => setUsers(res.data.users))
       .catch(() => showToast('Failed to load users', 'error'))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    const timer = setTimeout(loadUsers, 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
   }, [search]);
 
   const toggleStatus = async (user) => {
@@ -36,79 +28,24 @@ export default function AdminUsers() {
     try {
       await adminApi.patch(`/admin/users/${user._id}/status`, { status: newStatus });
       showToast(`User ${newStatus}`);
-      loadUsers();
+      load();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update user', 'error');
     }
   };
 
-  const openEditModal = (user) => {
-    setSelectedUser(user);
-    const base = {
-      name: user.name || '',
-      email: user.email || '',
-      mobile: user.mobile || '',
-      address: user.address || '',
-      city: user.city || '',
-      state: user.state || '',
-      postalCode: user.postalCode || '',
-      country: user.country || '',
-      bankName: user.bankName || '',
-      bankAccountNumber: user.bankAccountNumber || '',
-      upiId: user.upiId || '',
-    };
-    const custom = {};
-    fields.forEach((f) => {
-      custom[f.name] = user.customFields?.[f.name] ?? f.defaultValue ?? '';
-    });
-    setFormData({ ...base, customFields: custom });
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedUser(null);
-  };
-
-  const handleBaseChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleCustomChange = (fieldName, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      customFields: { ...prev.customFields, [fieldName]: value },
-    }));
-  };
-
-  const saveDetails = async (e) => {
-    e.preventDefault();
-    if (!selectedUser) return;
-    setSaving(true);
+  const toggleBankVerify = async (user) => {
     try {
-      const payload = { ...formData };
-      // Ensure customFields is included
-      await adminApi.patch(`/admin/users/${selectedUser._id}/details`, {
-        ...payload,
-        customFields: formData.customFields,
-      });
-      showToast('User details updated successfully');
-      closeModal();
-      loadUsers();
+      await adminApi.patch(`/admin/users/${user._id}/bank-verify`, { verified: !user.bankDetails?.verified });
+      showToast(user.bankDetails?.verified ? 'Bank details unverified' : 'Bank details verified');
+      load();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to update details', 'error');
-    } finally {
-      setSaving(false);
+      showToast(err.response?.data?.message || 'Failed to update verification', 'error');
     }
   };
 
-  const getCustomValue = (user, field) => {
-    const val = user.customFields?.[field.name];
-    return val !== undefined && val !== null ? val : field.defaultValue ?? '-';
-  };
-
   return (
-    <div className="space-y-4 max-w-7xl">
+    <div className="space-y-4 max-w-6xl">
       <div className="relative max-w-sm">
         <Search size={15} className="absolute left-3 top-2.5 text-gray-400" />
         <input
@@ -125,20 +62,14 @@ export default function AdminUsers() {
         ) : users.length === 0 ? (
           <p className="text-sm text-gray-400 py-8 text-center">No users found</p>
         ) : (
-          <table className="w-full text-sm min-w-[1000px]">
+          <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b border-gray-100">
                 <th className="py-2 font-medium">Name</th>
                 <th className="py-2 font-medium">Email</th>
                 <th className="py-2 font-medium">Account ID</th>
                 <th className="py-2 font-medium">Balance</th>
-                <th className="py-2 font-medium">UPI</th>
-                <th className="py-2 font-medium">Bank</th>
-                <th className="py-2 font-medium">Address</th>
-                {fields.map((f) => (
-                  <th key={f._id} className="py-2 font-medium">{f.label}</th>
-                ))}
-                <th className="py-2 font-medium">Unlocked</th>
+                <th className="py-2 font-medium">Bank Details</th>
                 <th className="py-2 font-medium">Status</th>
                 <th className="py-2 font-medium">Actions</th>
               </tr>
@@ -149,48 +80,41 @@ export default function AdminUsers() {
                   <td className="py-2.5 text-gray-800 font-medium">{u.name}</td>
                   <td className="py-2.5 text-gray-600">{u.email}</td>
                   <td className="py-2.5 text-gray-500 font-mono text-xs">{u.accountId}</td>
-                  <td className="py-2.5 text-gray-800">{u.balance.toFixed(2)}</td>
-                  <td className="py-2.5 text-gray-600 max-w-[120px] truncate">{u.upiId || '-'}</td>
-                  <td className="py-2.5 text-gray-600 max-w-[120px] truncate">{u.bankName || '-'}</td>
-                  <td className="py-2.5 text-gray-600 max-w-[150px] truncate">
-                    {u.address ? `${u.address}, ${u.city || ''} ${u.state || ''}` : '-'}
-                  </td>
-                  {fields.map((f) => (
-                    <td key={f._id} className="py-2.5 text-gray-600 max-w-[120px] truncate">
-                      {getCustomValue(u, f)}
-                    </td>
-                  ))}
+                  <td className="py-2.5 text-gray-800">{u.balance.toFixed(2)} $</td>
                   <td className="py-2.5">
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        u.isUnlocked ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {u.isUnlocked ? 'Yes' : 'No'}
-                    </span>
+                    {u.bankDetails?.accountNumber ? (
+                      <div>
+                        <div className="text-gray-700 text-xs">
+                          {u.bankDetails.bankName} · {u.bankDetails.accountNumber}
+                        </div>
+                        <div className="text-gray-400 text-xs">{u.bankDetails.ifscCode}</div>
+                        <span
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${
+                            u.bankDetails.verified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {u.bankDetails.verified ? <BadgeCheck size={11} /> : <Clock size={11} />}
+                          {u.bankDetails.verified ? 'Verified' : 'Pending'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-300 text-xs">Not submitted</span>
+                    )}
                   </td>
                   <td className="py-2.5">
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}
-                    >
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {u.status}
                     </span>
                   </td>
-                  <td className="py-2.5 flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => toggleStatus(u)}
-                      className="text-xs text-primary-600 hover:underline"
-                    >
+                  <td className="py-2.5 space-x-2 whitespace-nowrap">
+                    <button onClick={() => toggleStatus(u)} className="text-xs text-primary-600 hover:underline">
                       {u.status === 'active' ? 'Suspend' : 'Reactivate'}
                     </button>
-                    <button
-                      onClick={() => openEditModal(u)}
-                      className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                    >
-                      <Pencil size={12} /> Edit
-                    </button>
+                    {u.bankDetails?.accountNumber && (
+                      <button onClick={() => toggleBankVerify(u)} className="text-xs text-primary-600 hover:underline">
+                        {u.bankDetails.verified ? 'Unverify' : 'Verify'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -198,220 +122,6 @@ export default function AdminUsers() {
           </table>
         )}
       </div>
-
-      {/* Edit Details Modal */}
-      {isModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">
-                Edit User Details - {selectedUser.name}
-              </h2>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={saveDetails} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Base fields */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                  <input
-                    name="name"
-                    value={formData.name || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    name="email"
-                    value={formData.email || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Mobile</label>
-                  <input
-                    name="mobile"
-                    value={formData.mobile || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
-                  <input
-                    name="address"
-                    value={formData.address || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">City</label>
-                  <input
-                    name="city"
-                    value={formData.city || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">State</label>
-                  <input
-                    name="state"
-                    value={formData.state || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Postal Code</label>
-                  <input
-                    name="postalCode"
-                    value={formData.postalCode || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Country</label>
-                  <input
-                    name="country"
-                    value={formData.country || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Bank Name</label>
-                  <input
-                    name="bankName"
-                    value={formData.bankName || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Bank Account Number</label>
-                  <input
-                    name="bankAccountNumber"
-                    value={formData.bankAccountNumber || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">UPI ID</label>
-                  <input
-                    name="upiId"
-                    value={formData.upiId || ''}
-                    onChange={handleBaseChange}
-                    className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-              </div>
-
-              {/* Custom Fields */}
-              {fields.length > 0 && (
-                <div className="border-t pt-4 mt-4">
-                  <h3 className="text-md font-medium text-gray-700 mb-3">Custom Fields</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {fields.map((f) => {
-                      const value = formData.customFields?.[f.name] ?? f.defaultValue ?? '';
-                      let input;
-                      switch (f.type) {
-                        case 'select':
-                          input = (
-                            <select
-                              value={value}
-                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
-                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            >
-                              <option value="">Select...</option>
-                              {f.options.map((opt) => (
-                                <option key={opt} value={opt}>{opt}</option>
-                              ))}
-                            </select>
-                          );
-                          break;
-                        case 'textarea':
-                          input = (
-                            <textarea
-                              value={value}
-                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
-                              rows={2}
-                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          );
-                          break;
-                        case 'date':
-                          input = (
-                            <input
-                              type="date"
-                              value={value}
-                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
-                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          );
-                          break;
-                        case 'number':
-                          input = (
-                            <input
-                              type="number"
-                              value={value}
-                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
-                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          );
-                          break;
-                        default:
-                          input = (
-                            <input
-                              type="text"
-                              value={value}
-                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
-                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          );
-                      }
-                      return (
-                        <div key={f._id}>
-                          <label className="block text-sm font-medium text-gray-700">
-                            {f.label} {f.required && <span className="text-red-500">*</span>}
-                          </label>
-                          {input}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-60 flex items-center gap-2"
-                >
-                  {saving && <Loader2 size={16} className="animate-spin" />}
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

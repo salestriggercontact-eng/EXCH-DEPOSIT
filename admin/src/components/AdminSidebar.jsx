@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, Users, Receipt, ScrollText, ListPlus, X } from 'lucide-react';
+import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, Users, Receipt, ScrollText, X } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -8,7 +8,6 @@ const navItems = [
   { to: '/users', label: 'Users', icon: Users },
   { to: '/transactions', label: 'Transactions', icon: Receipt },
   { to: '/audit-logs', label: 'Audit Logs', icon: ScrollText },
-  { to: '/custom-fields', label: 'Custom Fields', icon: ListPlus },
 ];
 
 export default function AdminSidebar({ open, onClose }) {

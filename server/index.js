@@ -13,7 +13,6 @@ const earningRoutes = require('./routes/earningRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const customFieldRoutes = require('./routes/customFieldRoutes');
 
 const app = express();
 
@@ -33,7 +32,6 @@ app.use('/api/earnings', earningRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/custom-fields', customFieldRoutes);
 
 // 404 handler
 app.use((req, res) => {

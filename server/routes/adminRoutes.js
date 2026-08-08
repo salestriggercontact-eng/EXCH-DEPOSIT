@@ -6,7 +6,7 @@ const { verifyAdmin } = require('../middleware/auth');
 router.get('/dashboard', verifyAdmin, adminController.getAdminDashboard);
 router.get('/users', verifyAdmin, adminController.listUsers);
 router.patch('/users/:id/status', verifyAdmin, adminController.updateUserStatus);
-router.patch('/users/:id/details', verifyAdmin, adminController.updateUserDetails); // <-- NEW
+router.patch('/users/:id/bank-verify', verifyAdmin, adminController.verifyBankDetails);
 router.get('/transactions', verifyAdmin, adminController.listAllTransactions);
 router.get('/audit-logs', verifyAdmin, adminController.listAuditLogs);
 
