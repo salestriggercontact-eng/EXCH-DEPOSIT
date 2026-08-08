@@ -12,7 +12,14 @@ const FIELD_TYPES = [
   { value: 'checkbox', label: 'Checkbox (yes/no)' },
 ];
 
-const emptyForm = { label: '', fieldType: 'text', options: '', required: false, order: 0, isActive: true };
+const emptyForm = {
+  label: '',
+  fieldType: 'text',
+  options: '',
+  required: false,
+  order: 0,
+  isActive: true,
+};
 
 export default function AdminCustomFields() {
   const { showToast } = useToast();
@@ -43,7 +50,7 @@ export default function AdminCustomFields() {
     setForm({
       label: f.label,
       fieldType: f.fieldType,
-      options: (f.options || []).join(', '),
+      options: f.options ? f.options.join(', ') : '',
       required: f.required,
       order: f.order,
       isActive: f.isActive,
@@ -56,27 +63,43 @@ export default function AdminCustomFields() {
       showToast('Field label is required', 'error');
       return;
     }
+
+    // ✅ Properly parse options for select
+    let optionsArray = [];
+    if (form.fieldType === 'select') {
+      optionsArray = form.options
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      if (optionsArray.length === 0) {
+        showToast('Please enter at least one option for dropdown', 'error');
+        return;
+      }
+    }
+
     setSaving(true);
     const payload = {
       label: form.label.trim(),
       fieldType: form.fieldType,
-      options: form.fieldType === 'select' ? form.options.split(',').map((o) => o.trim()).filter(Boolean) : [],
+      options: optionsArray,
       required: form.required,
       order: Number(form.order) || 0,
       isActive: form.isActive,
     };
+
     try {
       if (editingId) {
         await adminApi.patch(`/custom-fields/admin/${editingId}`, payload);
         showToast('Field updated');
       } else {
         await adminApi.post('/custom-fields/admin', payload);
-        showToast('Field added — now visible on user Account page');
+        showToast('Field added - now visible on user Account page');
       }
       resetForm();
       load();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to save field', 'error');
+      const msg = err.response?.data?.message || 'Failed to save field';
+      showToast(msg, 'error');
     } finally {
       setSaving(false);
     }
@@ -146,11 +169,19 @@ export default function AdminCustomFields() {
             />
           )}
           <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={form.required}
+              onChange={(e) => setForm({ ...form, required: e.target.checked })}
+            />
             Required
           </label>
           <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+            />
             Active (visible to users)
           </label>
           <div className="sm:col-span-2 flex gap-2">
