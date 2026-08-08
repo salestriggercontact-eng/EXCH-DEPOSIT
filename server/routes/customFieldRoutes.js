@@ -1,3 +1,4 @@
+// server/routes/customFieldRoutes.js
 const express = require('express');
 const router = express.Router();
 const customFieldController = require('../controllers/customFieldController');
@@ -9,6 +10,7 @@ router.put('/my', verifyUser, customFieldController.saveMyFieldValues);
 
 // admin
 router.get('/admin/all', verifyAdmin, customFieldController.adminListFields);
+router.get('/admin/users-values', verifyAdmin, customFieldController.adminListUsersValues); // <-- नया
 router.post('/admin', verifyAdmin, customFieldController.adminCreateField);
 router.patch('/admin/:id', verifyAdmin, customFieldController.adminUpdateField);
 router.delete('/admin/:id', verifyAdmin, customFieldController.adminDeleteField);
