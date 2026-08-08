@@ -12,13 +12,7 @@ const userSchema = new mongoose.Schema(
     status: { type: String, enum: ['active', 'suspended'], default: 'active' },
     isUnlocked: { type: Boolean, default: false }, // true once minimum initial deposit is approved
     telegramVerified: { type: Boolean, default: false },
-    bankDetails: {
-      accountNumber: { type: String, default: null },
-      ifscCode: { type: String, default: null },
-      bankName: { type: String, default: null },
-      verified: { type: Boolean, default: false },
-      verifiedAt: { type: Date, default: null },
-    },
+    customFields: { type: mongoose.Schema.Types.Mixed, default: {} }, // { [fieldKey]: value } for admin-defined fields
   },
   { timestamps: true }
 );

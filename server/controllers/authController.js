@@ -155,36 +155,6 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-exports.updateBankDetails = async (req, res) => {
-  try {
-    const { accountNumber, ifscCode, bankName } = req.body;
-    if (!accountNumber || !ifscCode || !bankName) {
-      return res.status(400).json({ success: false, message: 'Account number, IFSC code, and bank name are required' });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      {
-        $set: {
-          bankDetails: {
-            accountNumber: accountNumber.trim(),
-            ifscCode: ifscCode.trim().toUpperCase(),
-            bankName: bankName.trim(),
-            verified: false, // any edit requires admin to re-verify
-            verifiedAt: null,
-          },
-        },
-      },
-      { new: true }
-    ).select('-passwordHash');
-
-    return res.json({ success: true, message: 'Bank details saved, pending admin verification', user });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
-  }
-};
-
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;

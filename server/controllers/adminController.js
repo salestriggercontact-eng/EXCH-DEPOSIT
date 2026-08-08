@@ -85,35 +85,6 @@ exports.updateUserStatus = async (req, res) => {
   }
 };
 
-// PATCH /api/admin/users/:id/bank-verify
-exports.verifyBankDetails = async (req, res) => {
-  try {
-    const { verified } = req.body;
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    if (!user.bankDetails?.accountNumber) {
-      return res.status(400).json({ success: false, message: 'User has not submitted bank details yet' });
-    }
-
-    user.bankDetails.verified = !!verified;
-    user.bankDetails.verifiedAt = verified ? new Date() : null;
-    await user.save();
-
-    await AdminAuditLog.create({
-      adminId: req.adminId,
-      action: verified ? 'VERIFY_BANK_DETAILS' : 'UNVERIFY_BANK_DETAILS',
-      targetType: 'User',
-      targetId: user._id,
-      details: `${verified ? 'Verified' : 'Unverified'} bank details for user ${user.email}`,
-    });
-
-    return res.json({ success: true, message: `Bank details ${verified ? 'verified' : 'unverified'}`, user: await User.findById(user._id).select('-passwordHash') });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
-  }
-};
-
 // GET /api/admin/transactions
 exports.listAllTransactions = async (req, res) => {
   try {

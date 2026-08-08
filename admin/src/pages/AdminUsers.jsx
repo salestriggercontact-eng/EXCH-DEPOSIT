@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, BadgeCheck, Clock } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { adminApi } from '../api/axios';
 import { useToast } from '../context/ToastContext';
 
@@ -34,16 +34,6 @@ export default function AdminUsers() {
     }
   };
 
-  const toggleBankVerify = async (user) => {
-    try {
-      await adminApi.patch(`/admin/users/${user._id}/bank-verify`, { verified: !user.bankDetails?.verified });
-      showToast(user.bankDetails?.verified ? 'Bank details unverified' : 'Bank details verified');
-      load();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to update verification', 'error');
-    }
-  };
-
   return (
     <div className="space-y-4 max-w-6xl">
       <div className="relative max-w-sm">
@@ -69,7 +59,7 @@ export default function AdminUsers() {
                 <th className="py-2 font-medium">Email</th>
                 <th className="py-2 font-medium">Account ID</th>
                 <th className="py-2 font-medium">Balance</th>
-                <th className="py-2 font-medium">Bank Details</th>
+                <th className="py-2 font-medium">Unlocked</th>
                 <th className="py-2 font-medium">Status</th>
                 <th className="py-2 font-medium">Actions</th>
               </tr>
@@ -82,39 +72,19 @@ export default function AdminUsers() {
                   <td className="py-2.5 text-gray-500 font-mono text-xs">{u.accountId}</td>
                   <td className="py-2.5 text-gray-800">{u.balance.toFixed(2)} $</td>
                   <td className="py-2.5">
-                    {u.bankDetails?.accountNumber ? (
-                      <div>
-                        <div className="text-gray-700 text-xs">
-                          {u.bankDetails.bankName} · {u.bankDetails.accountNumber}
-                        </div>
-                        <div className="text-gray-400 text-xs">{u.bankDetails.ifscCode}</div>
-                        <span
-                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${
-                            u.bankDetails.verified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {u.bankDetails.verified ? <BadgeCheck size={11} /> : <Clock size={11} />}
-                          {u.bankDetails.verified ? 'Verified' : 'Pending'}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-300 text-xs">Not submitted</span>
-                    )}
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${u.isUnlocked ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {u.isUnlocked ? 'Yes' : 'No'}
+                    </span>
                   </td>
                   <td className="py-2.5">
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {u.status}
                     </span>
                   </td>
-                  <td className="py-2.5 space-x-2 whitespace-nowrap">
+                  <td className="py-2.5">
                     <button onClick={() => toggleStatus(u)} className="text-xs text-primary-600 hover:underline">
                       {u.status === 'active' ? 'Suspend' : 'Reactivate'}
                     </button>
-                    {u.bankDetails?.accountNumber && (
-                      <button onClick={() => toggleBankVerify(u)} className="text-xs text-primary-600 hover:underline">
-                        {u.bankDetails.verified ? 'Unverify' : 'Verify'}
-                      </button>
-                    )}
                   </td>
                 </tr>
               ))}
