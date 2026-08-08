@@ -1,10 +1,7 @@
-// server/controllers/customFieldController.js
-
 const CustomField = require('../models/CustomField');
 const User = require('../models/User');
 const AdminAuditLog = require('../models/AdminAuditLog');
 
-// Improved slugify: removes special chars, makes lowercase, and handles uniqueness
 function slugifyKey(label) {
   return label
     .trim()
@@ -13,9 +10,9 @@ function slugifyKey(label) {
     .replace(/^_+$/g, '');
 }
 
-// ----- USER -----
+// ---------- USER ----------
 
-// GET /api/custom-fields - active fields for user account page
+// GET /api/custom-fields - active fields, in order, for the Account page
 exports.getActiveFields = async (req, res) => {
   try {
     const fields = await CustomField.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
@@ -26,7 +23,7 @@ exports.getActiveFields = async (req, res) => {
   }
 };
 
-// PUT /api/custom-fields/my - user saves their values
+// PUT /api/custom-fields/my - user saves answers { values: { fieldKey: value } }
 exports.saveMyFieldValues = async (req, res) => {
   try {
     const { values } = req.body;
@@ -37,7 +34,7 @@ exports.saveMyFieldValues = async (req, res) => {
     const activeFields = await CustomField.find({ isActive: true });
     const activeKeys = new Set(activeFields.map(f => f.fieldKey));
 
-    // Validate required fields
+    // validate required fields
     for (const field of activeFields) {
       if (field.required) {
         const v = values[field.fieldKey];
@@ -50,7 +47,6 @@ exports.saveMyFieldValues = async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Merge only active keys
     const merged = { ...(user.customFields || {}) };
     for (const key of Object.keys(values)) {
       if (activeKeys.has(key)) {
@@ -67,9 +63,9 @@ exports.saveMyFieldValues = async (req, res) => {
   }
 };
 
-// ----- ADMIN -----
+// ---------- ADMIN ----------
 
-// GET /api/custom-fields/admin/all - list all fields (with optional user values)
+// GET /api/custom-fields/admin/all
 exports.adminListFields = async (req, res) => {
   try {
     const fields = await CustomField.find().sort({ order: 1, createdAt: 1 });
@@ -80,39 +76,7 @@ exports.adminListFields = async (req, res) => {
   }
 };
 
-// NEW: GET /api/custom-fields/admin/users-values - see all users' custom field answers
-exports.adminListUsersValues = async (req, res) => {
-  try {
-    // Get all active fields to know the keys
-    const activeFields = await CustomField.find({ isActive: true });
-    const fieldKeys = activeFields.map(f => f.fieldKey);
-
-    // Get all users (or paginated) and select only customFields + name/email
-    const users = await User.find({}, 'name email accountId customFields').sort({ createdAt: -1 });
-
-    // Format response: each user with their field values
-    const result = users.map(user => {
-      const values = {};
-      fieldKeys.forEach(key => {
-        values[key] = user.customFields && user.customFields[key] !== undefined ? user.customFields[key] : null;
-      });
-      return {
-        userId: user._id,
-        name: user.name,
-        email: user.email,
-        accountId: user.accountId,
-        values
-      };
-    });
-
-    return res.json({ success: true, users: result, fields: activeFields });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
-  }
-};
-
-// POST /api/custom-fields/admin - create new field with unique slug
+// POST /api/custom-fields/admin
 exports.adminCreateField = async (req, res) => {
   try {
     let { label, fieldType, options, required, order, isActive } = req.body;
@@ -120,13 +84,13 @@ exports.adminCreateField = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Label is required' });
     }
 
-    // Generate base slug
+    // Generate base fieldKey
     let baseKey = slugifyKey(label);
     if (!baseKey) {
       return res.status(400).json({ success: false, message: 'Label must contain at least one letter or number' });
     }
 
-    // Ensure uniqueness by appending number if needed
+    // Check for uniqueness and add suffix if needed
     let fieldKey = baseKey;
     let suffix = 1;
     while (await CustomField.findOne({ fieldKey })) {
@@ -134,7 +98,6 @@ exports.adminCreateField = async (req, res) => {
       suffix++;
     }
 
-    // Validate select options
     if (fieldType === 'select') {
       if (!Array.isArray(options) || options.filter(o => o && o.trim()).length === 0) {
         return res.status(400).json({ success: false, message: 'At least one option is required for a select field' });
@@ -169,25 +132,36 @@ exports.adminCreateField = async (req, res) => {
   }
 };
 
-// PATCH /api/custom-fields/admin/:id - update field
+// PATCH /api/custom-fields/admin/:id
 exports.adminUpdateField = async (req, res) => {
   try {
     const { label, fieldType, options, required, order, isActive } = req.body;
     const field = await CustomField.findById(req.params.id);
     if (!field) return res.status(404).json({ success: false, message: 'Field not found' });
 
-    if (label) {
+    // If label changes, regenerate fieldKey with uniqueness check
+    if (label && label.trim() !== field.label) {
+      let baseKey = slugifyKey(label);
+      if (!baseKey) {
+        return res.status(400).json({ success: false, message: 'Label must contain at least one letter or number' });
+      }
+      let newKey = baseKey;
+      let suffix = 1;
+      while (await CustomField.findOne({ fieldKey: newKey, _id: { $ne: field._id } })) {
+        newKey = `${baseKey}${suffix}`;
+        suffix++;
+      }
+      field.fieldKey = newKey;
       field.label = label.trim();
-      // Optionally, you could regenerate slug, but better to keep old key to preserve data
     }
+
     if (fieldType) field.fieldType = fieldType;
-    if (fieldType === 'select') {
-      if (!Array.isArray(options) || options.filter(o => o && o.trim()).length === 0) {
+    if (options) {
+      const opts = options.filter(o => o && o.trim()).map(o => o.trim());
+      if (field.fieldType === 'select' && opts.length === 0) {
         return res.status(400).json({ success: false, message: 'At least one option is required for a select field' });
       }
-      field.options = options.filter(o => o && o.trim()).map(o => o.trim());
-    } else {
-      field.options = [];
+      field.options = opts;
     }
     if (required !== undefined) field.required = !!required;
     if (order !== undefined) field.order = Number(order);
