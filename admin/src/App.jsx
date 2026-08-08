@@ -1,10 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 import { ToastProvider } from './context/ToastContext';
-
 import AdminProtectedRoute from './components/AdminProtectedRoute';
 import AdminLayout from './layouts/AdminLayout';
-
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminDeposits from './pages/AdminDeposits';
@@ -21,6 +19,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<AdminLogin />} />
+
             <Route
               element={
                 <AdminProtectedRoute>
@@ -36,6 +35,7 @@ export default function App() {
               <Route path="/audit-logs" element={<AdminAuditLogs />} />
               <Route path="/custom-fields" element={<AdminCustomFields />} />
             </Route>
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
@@ -43,6 +43,3 @@ export default function App() {
     </ToastProvider>
   );
 }
-import AdminUserCustomData from './pages/AdminUserCustomData';
-// ... और रूट में
-<Route path="/user-custom-data" element={<AdminUserCustomData />} />
