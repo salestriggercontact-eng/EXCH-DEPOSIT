@@ -11,7 +11,6 @@ function slugifyKey(label) {
 }
 
 // ---------- USER ----------
-
 exports.getActiveFields = async (req, res) => {
   try {
     const fields = await CustomField.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
@@ -61,7 +60,6 @@ exports.saveMyFieldValues = async (req, res) => {
 };
 
 // ---------- ADMIN ----------
-
 exports.adminListFields = async (req, res) => {
   try {
     const fields = await CustomField.find().sort({ order: 1, createdAt: 1 });
@@ -75,7 +73,6 @@ exports.adminListFields = async (req, res) => {
 exports.adminCreateField = async (req, res) => {
   try {
     let { label, fieldType, options, required, order, isActive } = req.body;
-    
     if (!label) {
       return res.status(400).json({ success: false, message: 'Label is required' });
     }
@@ -85,7 +82,7 @@ exports.adminCreateField = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Label must contain at least one letter or number' });
     }
 
-    // ⭐ IMPORTANT: Unique key generation with suffix
+    // ✅ Unique key generation – this is the fix for duplicate field error
     let fieldKey = baseKey;
     let suffix = 1;
     while (await CustomField.findOne({ fieldKey })) {
@@ -122,7 +119,7 @@ exports.adminCreateField = async (req, res) => {
 
     return res.status(201).json({ success: true, message: 'Field added', field });
   } catch (err) {
-    console.error('❌ CREATE FIELD ERROR:', err);
+    console.error('❌ CREATE ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
@@ -172,7 +169,7 @@ exports.adminUpdateField = async (req, res) => {
 
     return res.json({ success: true, message: 'Field updated', field });
   } catch (err) {
-    console.error('❌ UPDATE FIELD ERROR:', err);
+    console.error('❌ UPDATE ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
@@ -192,7 +189,7 @@ exports.adminDeleteField = async (req, res) => {
 
     return res.json({ success: true, message: 'Field removed' });
   } catch (err) {
-    console.error('❌ DELETE FIELD ERROR:', err);
+    console.error('❌ DELETE ERROR:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
