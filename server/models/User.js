@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     isUnlocked: { type: Boolean, default: false },
     telegramVerified: { type: Boolean, default: false },
 
-    // --- NEW ACCOUNT DETAILS FIELDS ---
+    // Base account details
     address: { type: String, default: '' },
     city: { type: String, default: '' },
     state: { type: String, default: '' },
@@ -22,6 +22,12 @@ const userSchema = new mongoose.Schema(
     bankName: { type: String, default: '' },
     bankAccountNumber: { type: String, default: '' },
     upiId: { type: String, default: '' },
+
+    // Dynamic custom fields (key-value store for admin-defined fields)
+    customFields: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   { timestamps: true }
 );
