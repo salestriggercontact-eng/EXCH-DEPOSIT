@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Deposit = require('../models/Deposit');
 const Payout = require('../models/Payout');
 const AdminAuditLog = require('../models/AdminAuditLog');
+const CustomField = require('../models/CustomField');
 
 // GET /api/admin/dashboard
 exports.getAdminDashboard = async (req, res) => {
@@ -41,7 +42,7 @@ exports.getAdminDashboard = async (req, res) => {
   }
 };
 
-// GET /api/admin/users
+// GET /api/admin/users - includes custom fields
 exports.listUsers = async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
@@ -54,11 +55,32 @@ exports.listUsers = async (req, res) => {
       ];
     }
     const skip = (Number(page) - 1) * Number(limit);
-    const [users, total] = await Promise.all([
+    const [users, total, fields] = await Promise.all([
       User.find(filter).select('-passwordHash').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
       User.countDocuments(filter),
+      CustomField.find({ isActive: true }),
     ]);
-    return res.json({ success: true, users, pagination: { total, page: Number(page), limit: Number(limit) } });
+
+    // Fill missing custom fields with default values
+    const usersWithFields = users.map((user) => {
+      const custom = user.customFields || {};
+      for (const field of fields) {
+        if (!(field.name in custom)) {
+          custom[field.name] = field.defaultValue;
+        }
+      }
+      return {
+        ...user.toObject(),
+        customFields: custom,
+      };
+    });
+
+    return res.json({
+      success: true,
+      users: usersWithFields,
+      fields, // send field definitions for dynamic columns
+      pagination: { total, page: Number(page), limit: Number(limit) },
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
@@ -90,34 +112,38 @@ exports.updateUserStatus = async (req, res) => {
   }
 };
 
-// --- NEW: PATCH /api/admin/users/:id/details ---
+// PATCH /api/admin/users/:id/details - update base + custom fields
 exports.updateUserDetails = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
 
-    // Allowed fields (prevent updating passwordHash, balance, etc.)
-    const allowed = [
-      'name',
-      'email',
-      'mobile',
-      'address',
-      'city',
-      'state',
-      'postalCode',
-      'country',
-      'bankName',
-      'bankAccountNumber',
-      'upiId',
+    // Allowed base fields
+    const allowedBase = [
+      'name', 'email', 'mobile',
+      'address', 'city', 'state', 'postalCode', 'country',
+      'bankName', 'bankAccountNumber', 'upiId',
     ];
     const filtered = {};
-    for (const key of allowed) {
+    for (const key of allowedBase) {
       if (updates[key] !== undefined) filtered[key] = updates[key];
+    }
+
+    // Handle custom fields separately
+    let customFieldsUpdate = {};
+    if (updates.customFields && typeof updates.customFields === 'object') {
+      const fields = await CustomField.find({ isActive: true });
+      const allowedCustomNames = fields.map((f) => f.name);
+      for (const [key, value] of Object.entries(updates.customFields)) {
+        if (allowedCustomNames.includes(key)) {
+          customFieldsUpdate[`customFields.${key}`] = value;
+        }
+      }
     }
 
     const user = await User.findByIdAndUpdate(
       id,
-      { $set: filtered },
+      { $set: { ...filtered, ...customFieldsUpdate } },
       { new: true, runValidators: true }
     ).select('-passwordHash');
 
