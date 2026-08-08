@@ -10,8 +10,18 @@ const userSchema = new mongoose.Schema(
     referralCode: { type: String, default: null },
     balance: { type: Number, default: 0, min: 0 },
     status: { type: String, enum: ['active', 'suspended'], default: 'active' },
-    isUnlocked: { type: Boolean, default: false }, // true once minimum initial deposit is approved
+    isUnlocked: { type: Boolean, default: false },
     telegramVerified: { type: Boolean, default: false },
+
+    // --- NEW ACCOUNT DETAILS FIELDS ---
+    address: { type: String, default: '' },
+    city: { type: String, default: '' },
+    state: { type: String, default: '' },
+    postalCode: { type: String, default: '' },
+    country: { type: String, default: '' },
+    bankName: { type: String, default: '' },
+    bankAccountNumber: { type: String, default: '' },
+    upiId: { type: String, default: '' },
   },
   { timestamps: true }
 );
