@@ -7,6 +7,7 @@ export default function AdminUsers() {
   const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState([]);
+  const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,7 +18,10 @@ export default function AdminUsers() {
     setLoading(true);
     adminApi
       .get('/admin/users', { params: { search } })
-      .then((res) => setUsers(res.data.users))
+      .then((res) => {
+        setUsers(res.data.users);
+        setFields(res.data.fields || []);
+      })
       .catch(() => showToast('Failed to load users', 'error'))
       .finally(() => setLoading(false));
   };
@@ -40,7 +44,7 @@ export default function AdminUsers() {
 
   const openEditModal = (user) => {
     setSelectedUser(user);
-    setFormData({
+    const base = {
       name: user.name || '',
       email: user.email || '',
       mobile: user.mobile || '',
@@ -52,7 +56,12 @@ export default function AdminUsers() {
       bankName: user.bankName || '',
       bankAccountNumber: user.bankAccountNumber || '',
       upiId: user.upiId || '',
+    };
+    const custom = {};
+    fields.forEach((f) => {
+      custom[f.name] = user.customFields?.[f.name] ?? f.defaultValue ?? '';
     });
+    setFormData({ ...base, customFields: custom });
     setIsModalOpen(true);
   };
 
@@ -61,8 +70,15 @@ export default function AdminUsers() {
     setSelectedUser(null);
   };
 
-  const handleChange = (e) => {
+  const handleBaseChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleCustomChange = (fieldName, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      customFields: { ...prev.customFields, [fieldName]: value },
+    }));
   };
 
   const saveDetails = async (e) => {
@@ -70,7 +86,12 @@ export default function AdminUsers() {
     if (!selectedUser) return;
     setSaving(true);
     try {
-      await adminApi.patch(`/admin/users/${selectedUser._id}/details`, formData);
+      const payload = { ...formData };
+      // Ensure customFields is included
+      await adminApi.patch(`/admin/users/${selectedUser._id}/details`, {
+        ...payload,
+        customFields: formData.customFields,
+      });
       showToast('User details updated successfully');
       closeModal();
       loadUsers();
@@ -79,6 +100,11 @@ export default function AdminUsers() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const getCustomValue = (user, field) => {
+    const val = user.customFields?.[field.name];
+    return val !== undefined && val !== null ? val : field.defaultValue ?? '-';
   };
 
   return (
@@ -109,6 +135,9 @@ export default function AdminUsers() {
                 <th className="py-2 font-medium">UPI</th>
                 <th className="py-2 font-medium">Bank</th>
                 <th className="py-2 font-medium">Address</th>
+                {fields.map((f) => (
+                  <th key={f._id} className="py-2 font-medium">{f.label}</th>
+                ))}
                 <th className="py-2 font-medium">Unlocked</th>
                 <th className="py-2 font-medium">Status</th>
                 <th className="py-2 font-medium">Actions</th>
@@ -126,6 +155,11 @@ export default function AdminUsers() {
                   <td className="py-2.5 text-gray-600 max-w-[150px] truncate">
                     {u.address ? `${u.address}, ${u.city || ''} ${u.state || ''}` : '-'}
                   </td>
+                  {fields.map((f) => (
+                    <td key={f._id} className="py-2.5 text-gray-600 max-w-[120px] truncate">
+                      {getCustomValue(u, f)}
+                    </td>
+                  ))}
                   <td className="py-2.5">
                     <span
                       className={`text-xs px-2 py-1 rounded-full font-medium ${
@@ -179,12 +213,13 @@ export default function AdminUsers() {
             </div>
             <form onSubmit={saveDetails} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Base fields */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Full Name</label>
                   <input
                     name="name"
-                    value={formData.name}
-                    onChange={handleChange}
+                    value={formData.name || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -192,8 +227,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">Email</label>
                   <input
                     name="email"
-                    value={formData.email}
-                    onChange={handleChange}
+                    value={formData.email || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -201,8 +236,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">Mobile</label>
                   <input
                     name="mobile"
-                    value={formData.mobile}
-                    onChange={handleChange}
+                    value={formData.mobile || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -210,8 +245,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">Address</label>
                   <input
                     name="address"
-                    value={formData.address}
-                    onChange={handleChange}
+                    value={formData.address || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -219,8 +254,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">City</label>
                   <input
                     name="city"
-                    value={formData.city}
-                    onChange={handleChange}
+                    value={formData.city || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -228,8 +263,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">State</label>
                   <input
                     name="state"
-                    value={formData.state}
-                    onChange={handleChange}
+                    value={formData.state || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -237,8 +272,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">Postal Code</label>
                   <input
                     name="postalCode"
-                    value={formData.postalCode}
-                    onChange={handleChange}
+                    value={formData.postalCode || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -246,8 +281,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">Country</label>
                   <input
                     name="country"
-                    value={formData.country}
-                    onChange={handleChange}
+                    value={formData.country || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -255,8 +290,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">Bank Name</label>
                   <input
                     name="bankName"
-                    value={formData.bankName}
-                    onChange={handleChange}
+                    value={formData.bankName || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -264,8 +299,8 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">Bank Account Number</label>
                   <input
                     name="bankAccountNumber"
-                    value={formData.bankAccountNumber}
-                    onChange={handleChange}
+                    value={formData.bankAccountNumber || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
@@ -273,12 +308,89 @@ export default function AdminUsers() {
                   <label className="block text-sm font-medium text-gray-700">UPI ID</label>
                   <input
                     name="upiId"
-                    value={formData.upiId}
-                    onChange={handleChange}
+                    value={formData.upiId || ''}
+                    onChange={handleBaseChange}
                     className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
               </div>
+
+              {/* Custom Fields */}
+              {fields.length > 0 && (
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">Custom Fields</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {fields.map((f) => {
+                      const value = formData.customFields?.[f.name] ?? f.defaultValue ?? '';
+                      let input;
+                      switch (f.type) {
+                        case 'select':
+                          input = (
+                            <select
+                              value={value}
+                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
+                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            >
+                              <option value="">Select...</option>
+                              {f.options.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          );
+                          break;
+                        case 'textarea':
+                          input = (
+                            <textarea
+                              value={value}
+                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
+                              rows={2}
+                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          );
+                          break;
+                        case 'date':
+                          input = (
+                            <input
+                              type="date"
+                              value={value}
+                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
+                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          );
+                          break;
+                        case 'number':
+                          input = (
+                            <input
+                              type="number"
+                              value={value}
+                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
+                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          );
+                          break;
+                        default:
+                          input = (
+                            <input
+                              type="text"
+                              value={value}
+                              onChange={(e) => handleCustomChange(f.name, e.target.value)}
+                              className="w-full mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          );
+                      }
+                      return (
+                        <div key={f._id}>
+                          <label className="block text-sm font-medium text-gray-700">
+                            {f.label} {f.required && <span className="text-red-500">*</span>}
+                          </label>
+                          {input}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   type="button"
