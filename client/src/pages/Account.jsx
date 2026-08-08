@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, Hash, Calendar, ShieldCheck, LogOut, Save, Loader2 } from 'lucide-react';
+import { User, Mail, Phone, Hash, Calendar, ShieldCheck, LogOut, Save, Loader2, ListChecks } from 'lucide-react';
 import { api } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -14,6 +14,36 @@ export default function Account() {
   const [name, setName] = useState(user?.name || '');
   const [mobile, setMobile] = useState(user?.mobile || '');
   const [saving, setSaving] = useState(false);
+
+  const [customFields, setCustomFields] = useState([]);
+  const [customValues, setCustomValues] = useState(user?.customFields || {});
+  const [customLoading, setCustomLoading] = useState(true);
+  const [customSaving, setCustomSaving] = useState(false);
+
+  useEffect(() => {
+    api
+      .get('/custom-fields')
+      .then((res) => setCustomFields(res.data.fields))
+      .catch(() => {})
+      .finally(() => setCustomLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setCustomValues(user?.customFields || {});
+  }, [user]);
+
+  const saveCustomFields = async () => {
+    setCustomSaving(true);
+    try {
+      await api.put('/custom-fields/my', { values: customValues });
+      await refreshUser();
+      showToast('Details saved');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to save details', 'error');
+    } finally {
+      setCustomSaving(false);
+    }
+  };
 
   const [pwOpen, setPwOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -124,6 +154,33 @@ export default function Account() {
         </div>
       </div>
 
+      {!customLoading && customFields.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <ListChecks size={16} className="text-gray-500" />
+            <h3 className="font-medium text-gray-800">Additional details</h3>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {customFields.map((f) => (
+              <CustomFieldInput
+                key={f._id}
+                field={f}
+                value={customValues[f.fieldKey]}
+                onChange={(v) => setCustomValues((prev) => ({ ...prev, [f.fieldKey]: v }))}
+              />
+            ))}
+          </div>
+          <button
+            onClick={saveCustomFields}
+            disabled={customSaving}
+            className="mt-4 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
+          >
+            {customSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Save details
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -171,6 +228,44 @@ export default function Account() {
       >
         <LogOut size={16} /> Logout
       </button>
+    </div>
+  );
+}
+
+function CustomFieldInput({ field, value, onChange }) {
+  const commonClass =
+    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500';
+
+  return (
+    <div className={field.fieldType === 'textarea' ? 'sm:col-span-2' : ''}>
+      <label className="text-xs text-gray-500 mb-1 block">
+        {field.label}
+        {field.required && <span className="text-red-500"> *</span>}
+      </label>
+      {field.fieldType === 'textarea' ? (
+        <textarea rows={3} value={value || ''} onChange={(e) => onChange(e.target.value)} className={commonClass} />
+      ) : field.fieldType === 'select' ? (
+        <select value={value || ''} onChange={(e) => onChange(e.target.value)} className={commonClass}>
+          <option value="">Select...</option>
+          {(field.options || []).map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      ) : field.fieldType === 'checkbox' ? (
+        <label className="flex items-center gap-2 text-sm text-gray-700 py-2">
+          <input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
+          Yes
+        </label>
+      ) : (
+        <input
+          type={field.fieldType === 'number' ? 'number' : field.fieldType === 'date' ? 'date' : 'text'}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          className={commonClass}
+        />
+      )}
     </div>
   );
 }
