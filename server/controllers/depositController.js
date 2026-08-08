@@ -285,10 +285,16 @@ exports.adminListAddresses = async (req, res) => {
 
 exports.adminUpsertAddress = async (req, res) => {
   try {
-    const { coin, coinSymbol, network, address, minimumDeposit, isPopular, isActive } = req.body;
+    let { coin, coinSymbol, network, address, minimumDeposit, isPopular, isActive } = req.body;
     if (!coin || !coinSymbol || !network || !address || minimumDeposit == null) {
       return res.status(400).json({ success: false, message: 'All fields are required' });
     }
+
+    // normalize so admin-typed whitespace/casing never breaks the unlock-flow's exact match lookup
+    coin = coin.trim();
+    coinSymbol = coinSymbol.trim().toUpperCase();
+    network = network.trim().toUpperCase();
+    address = address.trim();
 
     const updated = await DepositAddress.findOneAndUpdate(
       { coinSymbol, network },
