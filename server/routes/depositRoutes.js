@@ -4,18 +4,21 @@ const depositController = require('../controllers/depositController');
 const { verifyUser, verifyAdmin } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
-// user
+// 🔥 HELLOPAY AUTOMATED ROUTES
+router.post('/create-payment', verifyUser, depositController.createHelloPayPayment);
+router.post('/hellopay-webhook', depositController.helloPayWebhook); 
+
+// MANUAL / CRYPTO ROUTES
 router.get('/addresses', verifyUser, depositController.getDepositAddresses);
 router.post('/', verifyUser, upload.single('paymentProof'), depositController.createDeposit);
 router.get('/my', verifyUser, depositController.getMyDeposits);
 
-// unlock-deposit popup flow (first deposit only)
 router.get('/unlock/addresses', verifyUser, depositController.getUnlockAddresses);
 router.post('/unlock/init', verifyUser, depositController.initUnlockDeposit);
 router.patch('/unlock/:id/sent', verifyUser, depositController.confirmUnlockSent);
 router.patch('/unlock/:id/cancel', verifyUser, depositController.cancelUnlockDeposit);
 
-// admin
+// ADMIN ROUTES
 router.get('/admin/all', verifyAdmin, depositController.adminListDeposits);
 router.patch('/admin/:id/approve', verifyAdmin, depositController.adminApproveDeposit);
 router.patch('/admin/:id/reject', verifyAdmin, depositController.adminRejectDeposit);
